@@ -1,9 +1,11 @@
+from idlelib import query
+
 import psycopg2
 from config import host, user, password, db_name
 from datetime import datetime, date
 
 
-class Database():
+class Database:
     def __init__(self):
         self.connection = None
 
@@ -52,17 +54,12 @@ class Database():
         """
         self.query_the_database(query = query, params = None)
 
-    def get_all_employees(self):
-        query = """
-        SELECT * FROM employees ORDER BY full_name;
-        """
-        return self.query_the_database(query=query, params=None, Fetch = True)
 
 
 
-class Employee(Database):
+class Employee:
     def __init__(self, *, full_name, birth_date, gender):
-        super().__init__()
+        self.database = Database() # Создаём композицию чтобы не наследовать все атрибуты и методы Database
         # приватные переменные инициализируются в setter
         self.full_name = full_name
         self.birth_date = birth_date
@@ -83,6 +80,10 @@ class Employee(Database):
     @full_name.setter
     def full_name(self, full_name):
         valid_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        if full_name is None:
+            print("ФИО не заполнено! (None)")
+            return
+
         words = full_name.split()
 
         if len(words) != 3:
@@ -94,11 +95,15 @@ class Employee(Database):
                 if char not in valid_chars:
                     print("ФИО должно содержать только английские буквы")
                     return
+
         full_name = full_name.title()
         self.__full_name = full_name
 
     @birth_date.setter
     def birth_date(self, birth_date):
+        if birth_date is None:
+            print("Дата рождения не заполнена! (None)")
+            return
         try:
             self.__birth_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
         except ValueError:
@@ -106,6 +111,9 @@ class Employee(Database):
 
     @gender.setter
     def gender(self, gender):
+        if gender is None:
+            print("Пол не заполнен! (None)")
+            return
         gender = gender.title()
         if gender != "Male" and gender != "Female":
             print("Пол записывается только значениями 'Male' и 'Female'")
@@ -117,44 +125,68 @@ class Employee(Database):
             query = """
             INSERT INTO employees (full_name, birth_date, gender) VALUES (%s, %s, %s)
             """
-            self.query_the_database(query = query, params = (self.full_name, self.birth_date, self.gender))
+            self.database.query_the_database(query = query, params = (self.full_name, self.birth_date, self.gender))
         except:
             print(f"Не удалось добавить сотрудника в таблицу, ошибка в ведённых данных")
 
     def get_age(self):
+        print(self.calculate_age(self.__birth_date))
+        return self.calculate_age(self.__birth_date)
+
+    def calculate_age(self, birth_date):
+        """Вычисляет возраст по дате рождения (может использоваться без создания объекта)"""
         try:
-            today = datetime.now()
-            age = today.year - self.__birth_date.year
-            # Если день рождения в этом году ещё не наступил, вычитаем 1
-            if (today.month, today.day) < (self.__birth_date.month, self.__birth_date.day):
+            today = datetime.now().date()
+            age = today.year - birth_date.year
+            if (today.month, today.day) < (birth_date.month, birth_date.day):
                 age -= 1
             return age
-        except:
-            print("Не удалось посчитать возраст, неккоректная дата")
+        except Exception as e:
+            print(f"Не удалось посчитать возраст: {e}")
+            return None
 
 
+
+class EmployeeView:
+    def __init__(self):
+        self.database = Database() # создаём композицию
+        self.employee = Employee(full_name = None, birth_date = None, gender = None)
+
+    def get_all_employees(self):
+        query = """
+        SELECT * FROM employees ORDER BY full_name;
+        """
+        list_with_employees = self.database.query_the_database(query=query, params=None, Fetch = True)
+        return list_with_employees
+
+    def display_employees_with_age(self):
+        today = datetime.now().date()
+        # Unpacking списка с кортежами с информацией о сотрудниках
+        employees_list = []
+        for i in self.get_all_employees():  # [(id, ФИО, год рождения, пол), (id, ФИО, год рождения, пол) ...]
+            employees_list.append(list(i))  # [[id, ФИО, год рождения, пол], [id, ФИО, год рождения, пол] ...]
+
+        for employee in employees_list:  #
+            full_name, birth_date, gender = employee[1], employee[2], employee[3]
+            age = self.employee.calculate_age(birth_date = birth_date)
+            employee.insert(3, age)
+        #     age = today.year - employee[2].year
+        #     if (today.month, today.day) < (employee[2].month, employee[2].day):
+        #         age -= 1
+        #     employee.insert(3, age)  # вставляем возраст после даты рождения
+        #
+        print("\n{:<5} {:<35} {:<15} {:<8} {:<6}".format("ID", "ФИО", "Дата рождения", "Возраст", "Пол"))
+        print("-" * 75)
+        for e in employees_list:
+            print("{:<5} {:<35} {:<15} {:<8} {:<6}".format(e[0], e[1], e[2].strftime("%Y-%m-%d"), e[3], e[4]))
 
 
 task1 = Database()
 task1.create_table()
 
-employee1 = Employee(full_name='Ivanov Petr Sergeevich', birth_date='2009-07-12', gender='Female')
-print(employee1.get_all_employees())
+employee1 = Employee(full_name='Serddddov Petr Sergeevich', birth_date='2001-06-20', gender='male')
+employee1.get_age()
 
+employee2 = EmployeeView()
+employee2.display_employees_with_age()
 
-today = datetime.now().date()
-# Unpacking списка с кортежами с информацией о сотрудниках
-employees_list = []
-for i in employee1.get_all_employees(): #[(id, ФИО, год рождения, пол), (id, ФИО, год рождения, пол) ...]
-    employees_list.append(list(i)) # [[id, ФИО, год рождения, пол], [id, ФИО, год рождения, пол] ...]
-
-for employee in employees_list: #
-    age = today.year - employee[2].year
-    if (today.month, today.day) < (employee[2].month, employee[2].day):
-        age -= 1
-    employee.insert(3, age) # вставляем возраст после даты рождения
-
-print("\n{:<5} {:<35} {:<15} {:<8} {:<6}".format("ID", "ФИО", "Дата рождения", "Возраст", "Пол"))
-print("-" * 75)
-for e in employees_list:
-    print("{:<5} {:<35} {:<15} {:<8} {:<6}".format(e[0], e[1], e[2].strftime("%Y-%m-%d"), e[3], e[4]))
