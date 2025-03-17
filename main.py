@@ -1,4 +1,4 @@
-from idlelib import query
+
 
 import psycopg2
 from config import host, user, password, db_name
@@ -24,7 +24,7 @@ class Database:
             print("[INFO] PostgreSQL connection closed")
             self.connection = None
 
-    def query_the_database(self, *, query: str, params = None, Fetch = False):
+    def query_the_database(self, *, query: str, params = None, fetch = False):
         self.connect()
         view_rows = None
         try:
@@ -33,7 +33,7 @@ class Database:
                     cursor.execute(query, params)
                 else:
                     cursor.execute(query)
-                    if Fetch:
+                    if fetch:
                         view_rows = cursor.fetchall()
             print(f"Выполнен SQL запрос: {query}")
             self.connection.commit()
@@ -53,6 +53,16 @@ class Database:
             );
         """
         self.query_the_database(query = query, params = None)
+
+    def clear_table(self):
+        try:
+            query = """
+            DELETE FROM employees;
+            """
+            self.query_the_database(query = query)
+            print("Таблица очищена")
+        except:
+            print("При попытке очистить таблицу произошла ошибка")
 
 
 
@@ -129,11 +139,14 @@ class Employee:
         except:
             print(f"Не удалось добавить сотрудника в таблицу, ошибка в ведённых данных")
 
-    def get_age(self):
-        print(self.calculate_age(self.__birth_date))
-        return self.calculate_age(self.__birth_date)
 
-    def calculate_age(self, birth_date):
+
+    def get_age(self):
+        print(self.calculate_age(birth_date = self.__birth_date))
+        return self.calculate_age(birth_date = self.__birth_date)
+
+    @staticmethod
+    def calculate_age(*, birth_date):
         """Вычисляет возраст по дате рождения (может использоваться без создания объекта)"""
         try:
             today = datetime.now().date()
@@ -150,17 +163,15 @@ class Employee:
 class EmployeeView:
     def __init__(self):
         self.database = Database() # создаём композицию
-        self.employee = Employee(full_name = None, birth_date = None, gender = None)
 
     def get_all_employees(self):
         query = """
         SELECT * FROM employees ORDER BY full_name;
         """
-        list_with_employees = self.database.query_the_database(query=query, params=None, Fetch = True)
+        list_with_employees = self.database.query_the_database(query=query, params=None, fetch = True)
         return list_with_employees
 
     def display_employees_with_age(self):
-        today = datetime.now().date()
         # Unpacking списка с кортежами с информацией о сотрудниках
         employees_list = []
         for i in self.get_all_employees():  # [(id, ФИО, год рождения, пол), (id, ФИО, год рождения, пол) ...]
@@ -168,25 +179,50 @@ class EmployeeView:
 
         for employee in employees_list:  #
             full_name, birth_date, gender = employee[1], employee[2], employee[3]
-            age = self.employee.calculate_age(birth_date = birth_date)
+            age = Employee.calculate_age(birth_date = birth_date)
             employee.insert(3, age)
-        #     age = today.year - employee[2].year
-        #     if (today.month, today.day) < (employee[2].month, employee[2].day):
-        #         age -= 1
-        #     employee.insert(3, age)  # вставляем возраст после даты рождения
-        #
+
         print("\n{:<5} {:<35} {:<15} {:<8} {:<6}".format("ID", "ФИО", "Дата рождения", "Возраст", "Пол"))
         print("-" * 75)
         for e in employees_list:
             print("{:<5} {:<35} {:<15} {:<8} {:<6}".format(e[0], e[1], e[2].strftime("%Y-%m-%d"), e[3], e[4]))
 
 
-task1 = Database()
-task1.create_table()
+def test_application():
+    print("=== Тестирование приложения ===")
 
-employee1 = Employee(full_name='Serddddov Petr Sergeevich', birth_date='2001-06-20', gender='male')
-employee1.get_age()
+    # Тест 1: Создание таблицы
+    print("\n--- Тест 1: Создание таблицы ---")
+    db = Database()
+    db.clear_table()
+    db.create_table()
+    # Тест 2: Добавление сотрудников
+    print("\n--- Тест 2: Добавление сотрудников ---")
+    employee1 = Employee(full_name='Serdov Petr Sergeevich', birth_date='2001-06-20', gender='Male')
+    employee1.add_employee()
 
-employee2 = EmployeeView()
-employee2.display_employees_with_age()
+    employee2 = Employee(full_name='Ivanov Ivan Ivanovich', birth_date='1990-01-15', gender='Male')
+    employee2.add_employee()
 
+    employee3 = Employee(full_name='Petrova Anna Mikhailovna', birth_date='1985-12-03', gender='Female')
+    employee3.add_employee()
+
+    # Тест валидации данных
+    print("\nПроверка валидации данных:")
+    invalid_employee = Employee(full_name='Invalid Name123', birth_date='not-a-date', gender='Unknown')
+    invalid_employee.add_employee()
+
+    # Тест 3: Расчет возраста
+    print("\n--- Тест 3: Расчет возраста ---")
+    employee1.get_age()
+    employee2.get_age()
+    employee3.get_age()
+
+    # Тест 4: Отображение всех сотрудников
+    print("\n--- Тест 4: Отображение всех сотрудников ---")
+    view = EmployeeView()
+    view.display_employees_with_age()
+
+
+if __name__ == "__main__":
+    test_application()
