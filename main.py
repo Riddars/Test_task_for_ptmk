@@ -1,9 +1,17 @@
-
-
 import psycopg2
 from config import host, user, password, db_name
 from datetime import datetime, date
+import random
+import time
 
+def benchmark(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print('[*] Время выполнения: {} секунд.'.format(end - start))
+        return result
+    return wrapper
 
 class Database:
     def __init__(self):
@@ -24,13 +32,16 @@ class Database:
             print("[INFO] PostgreSQL connection closed")
             self.connection = None
 
-    def query_the_database(self, *, query: str, params = None, fetch = False):
+    def query_the_database(self, *, query: str, params = None, fetch = False, ex_many = False):
         self.connect()
         view_rows = None
         try:
             with self.connection.cursor() as cursor:
                 if params:
-                    cursor.execute(query, params)
+                    if ex_many:
+                        cursor.executemany(query, params)
+                    else:
+                        cursor.execute(query, params)
                 else:
                     cursor.execute(query)
                     if fetch:
@@ -139,15 +150,66 @@ class Employee:
         except:
             print(f"Не удалось добавить сотрудника в таблицу, ошибка в ведённых данных")
 
+    @staticmethod
+    def generate_one_million_employees():
+        surname = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
 
+        name_male = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
+        name_female = ["Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen"]
+
+        lastname = ["Edward", "Alexander", "Christopher", "Daniel", "Matthew", "Anthony", "Brian", "Kevin", "Eric", "Ryan"]
+
+        f_surname = ["Foster", "Fletcher", "Ferguson", "Fisher", "Finley", "Ford", "Franklin", "Fitzgerald"]
+
+        result_full_name = []
+
+        for i in range(499950):
+            result_full_name.append(random.choice(surname) + " " + random.choice(name_male) + " " + random.choice(lastname))
+            result_full_name.append(random.choice(surname) + " " + random.choice(name_female) + " " + random.choice(lastname))
+
+        for i in range(100):
+            result_full_name.append(random.choice(f_surname) + " " + random.choice(name_male) + " " + random.choice(lastname))
+
+        #-------------
+
+        result_birth_date = []
+        for i in range(1000000):
+            year = random.randint(1900, 2025)
+            month = random.randint(1, 12)
+            day = random.randint(1, 28)
+            result_birth_date.append(date(year, month, day))
+
+        #------------
+        result_gender = []
+        for i in range(499950):
+            result_gender.append("Male")
+            result_gender.append("Female")
+
+        for i in range(100):
+            result_gender.append("Male")
+
+        result_billion_employees = []
+        for i in range(len(result_full_name)):
+            result_billion_employees.append((result_full_name[i], result_birth_date[i], result_gender[i]))
+
+        return result_billion_employees
+
+    def add_one_million_employees(self):
+        try:
+            query = """
+            INSERT INTO employees (full_name, birth_date, gender) VALUES (%s, %s, %s)
+            """
+            self.database.query_the_database(query = query, params = self.generate_one_billion_employees(), ex_many = True)
+        except:
+            print(f"Не удалось добавить миллион сотрудников в таблицу, ошибка в ведённых данных")
 
     def get_age(self):
-        print(self.calculate_age(birth_date = self.__birth_date))
         return self.calculate_age(birth_date = self.__birth_date)
 
     @staticmethod
     def calculate_age(*, birth_date):
-        """Вычисляет возраст по дате рождения (может использоваться без создания объекта)"""
+        # Сделал статичным потому что в целом self тут не нужен, а рассчёт лет нужен в методе display_employees_with_age
+        # вообщем чтобы не дублировать код
         try:
             today = datetime.now().date()
             age = today.year - birth_date.year
@@ -168,7 +230,7 @@ class EmployeeView:
         query = """
         SELECT * FROM employees ORDER BY full_name;
         """
-        list_with_employees = self.database.query_the_database(query=query, params=None, fetch = True)
+        list_with_employees = self.database.query_the_database(query=query, fetch = True)
         return list_with_employees
 
     def display_employees_with_age(self):
@@ -187,42 +249,142 @@ class EmployeeView:
         for e in employees_list:
             print("{:<5} {:<35} {:<15} {:<8} {:<6}".format(e[0], e[1], e[2].strftime("%Y-%m-%d"), e[3], e[4]))
 
+    @benchmark
+    def find_employee_F(self):
+        query = """
+        SELECT * FROM employees 
+        WHERE gender = 'Male' AND full_name LIKE 'F%'
+        ORDER BY full_name;
+        """
+        return self.database.query_the_database(query=query, fetch = True)
 
-def test_application():
-    print("=== Тестирование приложения ===")
 
-    # Тест 1: Создание таблицы
-    print("\n--- Тест 1: Создание таблицы ---")
+
+
+
+
+# def test_application():
+#     print("=== Тестирование приложения ===")
+#
+#     # Тест 1: Создание таблицы
+#     print("\n--- Тест 1: Создание таблицы ---")
+#     db = Database()
+#     db.clear_table()
+#     db.create_table()
+#     # Тест 2: Добавление сотрудников
+#     print("\n--- Тест 2: Добавление сотрудников ---")
+#     employee1 = Employee(full_name='Serdov Petr Sergeevich', birth_date='2001-06-20', gender='Male')
+#     employee1.add_employee()
+#
+#     employee2 = Employee(full_name='Ivanov Ivan Ivanovich', birth_date='1990-01-15', gender='Male')
+#     employee2.add_employee()
+#
+#     employee3 = Employee(full_name='Petrova Anna Mikhailovna', birth_date='1985-12-03', gender='Female')
+#     employee3.add_employee()
+#
+#     # Тест валидации данных
+#     print("\nПроверка валидации данных:")
+#     invalid_employee = Employee(full_name='Invalid Name123', birth_date='not-a-date', gender='Unknown')
+#     invalid_employee.add_employee()
+#
+#     # Тест 3: Расчет возраста
+#     print("\n--- Тест 3: Расчет возраста ---")
+#     employee1.get_age()
+#     employee2.get_age()
+#     employee3.get_age()
+#
+#     # Тест 4: Отображение всех сотрудников
+#     print("\n--- Тест 4: Отображение всех сотрудников ---")
+#     view = EmployeeView()
+#     view.display_employees_with_age()
+#
+#
+#     print(view.find_employee_F())
+
+def start_app():
     db = Database()
-    db.clear_table()
-    db.create_table()
-    # Тест 2: Добавление сотрудников
-    print("\n--- Тест 2: Добавление сотрудников ---")
-    employee1 = Employee(full_name='Serdov Petr Sergeevich', birth_date='2001-06-20', gender='Male')
-    employee1.add_employee()
 
-    employee2 = Employee(full_name='Ivanov Ivan Ivanovich', birth_date='1990-01-15', gender='Male')
-    employee2.add_employee()
+    while True:
+        print("\nСИСТЕМА УПРАВЛЕНИЯ СОТРУДНИКАМИ")
+        print("1. Создание таблицы")
+        print("2. Добавление одного сотрудника")
+        print("3. Просмотр всех сотрудников")
+        print("4. Массовое добавление данных")
+        print("5. Тестирование скорости поиска")
+        print("0. Выход")
 
-    employee3 = Employee(full_name='Petrova Anna Mikhailovna', birth_date='1985-12-03', gender='Female')
-    employee3.add_employee()
+        choice = input("\nВыберите режим: ")
 
-    # Тест валидации данных
-    print("\nПроверка валидации данных:")
-    invalid_employee = Employee(full_name='Invalid Name123', birth_date='not-a-date', gender='Unknown')
-    invalid_employee.add_employee()
+        if choice == "0":
+            print("Программа завершена.")
+            break
 
-    # Тест 3: Расчет возраста
-    print("\n--- Тест 3: Расчет возраста ---")
-    employee1.get_age()
-    employee2.get_age()
-    employee3.get_age()
+        elif choice == "1":
+            # Создание таблицы
+            print("\nСоздание таблицы employees...")
+            db.create_table()
+            print("Таблица успешно создана!")
 
-    # Тест 4: Отображение всех сотрудников
-    print("\n--- Тест 4: Отображение всех сотрудников ---")
-    view = EmployeeView()
-    view.display_employees_with_age()
+        elif choice == "2":
+            # Добавление одного сотрудника
+            print("\nДобавление нового сотрудника")
+            print("Введите данные сотрудника:")
+            full_name = input("ФИО (например, Smith John Edward): ")
+            birth_date = input("Дата рождения (ГГГГ-ММ-ДД): ")
+            gender = input("Пол (Male/Female): ")
+
+            employee = Employee(full_name=full_name, birth_date=birth_date, gender=gender)
+            employee.add_employee()
+
+            age = employee.get_age()
+            if age:
+                print(f"Сотрудник добавлен. Возраст: {age} лет")
+
+        elif choice == "3":
+            # Просмотр всех сотрудников
+            print("\nСписок всех сотрудников:")
+            view = EmployeeView()
+            view.display_employees_with_age()
+
+        elif choice == "4":
+            # Массовое добавление данных
+            print("\nГенерация и добавление 1,000,000 сотрудников...")
+            print("Это может занять некоторое время...")
+
+            # Создаем экземпляр с корректным ФИО
+            employee = Employee(full_name="Smith John Edward", birth_date="2000-01-01", gender="Male")
+
+            try:
+                # Получаем данные и вставляем их в базу
+                employees_data = employee.generate_one_million_employees()
+                if employees_data:
+                    query = """
+                    INSERT INTO employees (full_name, birth_date, gender) VALUES (%s, %s, %s)
+                    """
+                    db.query_the_database(query=query, params=employees_data, ex_many=True)
+                    print("Миллион сотрудников успешно добавлен!")
+                else:
+                    print("Ошибка: не удалось сгенерировать данные.")
+            except Exception as e:
+                print(f"Ошибка при добавлении сотрудников: {e}")
+
+        elif choice == "5":
+            # Тестирование скорости поиска
+            print("\nПоиск всех мужчин с фамилией на букву 'F'...")
+            view = EmployeeView()
+            result = view.find_employee_F()
+            print(f"Поиск завершен. Найдено {len(result)} сотрудников.")
+
+            if result:
+                print("\nРЕЗУЛЬТАТЫ ПОИСКА:")
+                for i, emp in enumerate(result[:10], 1):
+                    print(f"{i}. ID: {emp[0]}, ФИО: {emp[1]}, Дата: {emp[2].strftime('%Y-%m-%d')}, Пол: {emp[3]}")
+                if len(result) > 10:
+                    print(f"... и ещё {len(result) - 10} записей")
+
+        else:
+            print("Неверный выбор. Пожалуйста, выберите пункт из меню.")
 
 
 if __name__ == "__main__":
-    test_application()
+    start_app()
