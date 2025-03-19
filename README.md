@@ -133,6 +133,9 @@ python main.py 6
 ## Оптимизация
 
 Для оптимизации поиска используется создание индекса по двум полям: gender и full_name.
+Время без индекса: 0.195187 секунд
+Время с индексом: 0.103438 секунд
+
 
 ```sql
 CREATE INDEX idx_gender_fullname ON employees (gender, full_name);
@@ -145,3 +148,33 @@ SELECT * FROM employees
 WHERE gender = 'Male' AND full_name LIKE 'F%'
 ORDER BY full_name;
 ```
+
+---
+## Скриншоты работы
+### Создание таблицы сотрудников
+![image](https://github.com/user-attachments/assets/88e13c1b-0447-458f-8cd6-90c8bd0e4277)
+![image](https://github.com/user-attachments/assets/8885126f-0937-4b09-9e0d-3c093904bfba)
+### Добавление записи в таблицу
+![image](https://github.com/user-attachments/assets/f4596bca-313b-4135-bb63-3a689a34a103)
+![image](https://github.com/user-attachments/assets/978acb76-6c77-45cb-ac64-5453ca11a45f)
+### Просмотр записей в таблице
+![image](https://github.com/user-attachments/assets/cdcf6710-edd3-43cf-9e93-ac926e070862)
+### Генерация миллиона случайных сотрудников и их добавление в БД
+![image](https://github.com/user-attachments/assets/0dd84332-84cf-4d04-9867-d0b0bb7771d8)
+![image](https://github.com/user-attachments/assets/4f7403e6-d0ce-4f1c-a8cc-d37c05d3775b)
+![image](https://github.com/user-attachments/assets/d456684f-6055-4949-a3f8-bcce1d417aa1)
+![image](https://github.com/user-attachments/assets/ab17e58d-b1e2-49df-9ecb-fb8043574fc9)
+### Поиск всех мужчин с фамилией на F
+![image](https://github.com/user-attachments/assets/1d691a76-ccdf-4344-9ede-13b404840df2)
+### Сравнение запроса с оптимизацией в виде индекса и без
+![image](https://github.com/user-attachments/assets/35d0bfee-0155-434a-96ed-699beeeaa7cc)
+
+
+
+
+
+
+
+
+
+
